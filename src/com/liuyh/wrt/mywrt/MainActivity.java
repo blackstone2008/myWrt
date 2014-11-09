@@ -10,8 +10,11 @@ import java.io.InputStreamReader;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.Intent;
+import android.content.res.ColorStateList;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.os.StrictMode;
+import android.provider.CalendarContract.Colors;
 import android.support.v7.app.ActionBarActivity;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -21,6 +24,7 @@ import android.widget.CompoundButton;
 import android.widget.CompoundButton.OnCheckedChangeListener;
 import android.widget.EditText;
 import android.widget.TextView;
+import android.widget.Toast;
 import android.widget.ToggleButton;
 import ch.ethz.ssh2.Connection;
 import ch.ethz.ssh2.Session;
@@ -223,16 +227,33 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
 					//Connect to SSH server
 					SSHConnectHost();
 					btExecuteCmd.setEnabled(true);
+					Toast msg = Toast.makeText(mContext, "SSH Server connected.",  Toast.LENGTH_LONG);
+					tbOnOffControll.setTextColor(Color.GREEN);
+					msg.show();
 				}
 				else {
 					//Disconnect 
 					SSHDisConnectHost();
 					btExecuteCmd.setEnabled(false);
+					Toast msg = Toast.makeText(mContext, "SSH Server disconnected.",  Toast.LENGTH_LONG);
+					tbOnOffControll.setTextColor(Color.RED);
+					msg.show();
+					
 				}
 			}
 		});
 
     }
+	//Disconnect the SSH session gracefully to avoid junk on SSH server.
+	@Override
+	protected void onDestroy() {
+		// TODO Auto-generated method stub
+		super.onDestroy();
+		if (sshConnection != null) {
+			sshConnection.close();
+			sshConnection = null;
+		}
+	}
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {

@@ -10,9 +10,11 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="center"
+        android:hint="click to connect or disconnect network"
+        android:textColor="#ff0000"
         android:text="@string/tgOnOff"
-        android:textOff="DisConnect"
-        android:textOn="Connect" />
+        android:textOff="DisConnected"
+        android:textOn="Connected" />
 
     <RelativeLayout
         android:layout_width="match_parent"
