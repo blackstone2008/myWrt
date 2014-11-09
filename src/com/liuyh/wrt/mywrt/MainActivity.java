@@ -7,14 +7,13 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 
-import android.annotation.SuppressLint;
+//import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.Intent;
-import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.StrictMode;
-import android.provider.CalendarContract.Colors;
 import android.support.v7.app.ActionBarActivity;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -32,8 +31,8 @@ import ch.ethz.ssh2.StreamGobbler;
 //import android.R;
 
 
-
-@SuppressLint("NewApi")
+//Below is a wrokaround that allow UI executes some time-consuming operation, such as connect to SSH server.
+//@SuppressLint("NewApi")
 public class MainActivity extends ActionBarActivity implements View.OnClickListener{
 	
 	public final static int OK = 0;
@@ -200,6 +199,7 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
 	private Button btExecuteCmd;
 	private EditText etCmd;
 	private TextView tvExecuteResult;
+	private static Handler handler=new Handler();
 	@Override
     protected void onCreate(Bundle savedInstanceState) {
     	StrictMode.ThreadPolicy policy=new StrictMode.ThreadPolicy.Builder().permitAll().build();
@@ -225,20 +225,44 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
 				// TODO Auto-generated method stub
 				if (isChecked) {
 					//Connect to SSH server
-					SSHConnectHost();
-					btExecuteCmd.setEnabled(true);
-					Toast msg = Toast.makeText(mContext, "SSH Server connected.",  Toast.LENGTH_LONG);
-					tbOnOffControll.setTextColor(Color.GREEN);
-					msg.show();
+					new Thread(new Runnable() {
+						
+						@Override
+						public void run() {
+							handler.post(new Runnable() {
+								@Override
+								public void run() {
+									// TODO Auto-generated method stub
+									SSHConnectHost();
+									btExecuteCmd.setEnabled(true);
+									Toast msg = Toast.makeText(mContext, "SSH Server connected.",  Toast.LENGTH_LONG);
+									tbOnOffControll.setTextColor(Color.GREEN);
+									msg.show();
+								}
+							});
+						}
+						}).start();
 				}
 				else {
 					//Disconnect 
-					SSHDisConnectHost();
-					btExecuteCmd.setEnabled(false);
-					Toast msg = Toast.makeText(mContext, "SSH Server disconnected.",  Toast.LENGTH_LONG);
-					tbOnOffControll.setTextColor(Color.RED);
-					msg.show();
-					
+					new Thread(new Runnable() {
+						@Override
+						public void run() {
+							// TODO Auto-generated method stub
+							handler.post(new Runnable() {
+								
+								@Override
+								public void run() {
+									// TODO Auto-generated method stub
+									SSHDisConnectHost();
+									btExecuteCmd.setEnabled(false);
+									Toast msg = Toast.makeText(mContext, "SSH Server disconnected.",  Toast.LENGTH_LONG);
+									tbOnOffControll.setTextColor(Color.RED);
+									msg.show();
+								}
+							});
+						}
+					}).start();					
 				}
 			}
 		});
