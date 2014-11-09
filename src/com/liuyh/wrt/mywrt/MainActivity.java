@@ -11,10 +11,12 @@ import java.io.InputStreamReader;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
+import android.location.SettingInjectorService;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.StrictMode;
 import android.support.v7.app.ActionBarActivity;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -37,6 +39,10 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
 	
 	public final static int OK = 0;
 	public final static int FAIL = -1;
+	public final static int CONN_SUCCESS = 1;
+	public final static int CONN_FAILURE = 2;
+	public final static int DISCONN_SUCCESS = 3;
+	public final static int DISCONN_FAILURE = 4;
 	public final static int READ_BUF_SIZE = 10240;
 	public final static int REQ_ID_SETUP = 1;
 	//Global handle for SSH connection
@@ -46,7 +52,9 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
 	private static String password = "root";
 	
 	Context mContext;
-	
+	//Thread that do the real networking operation
+	private Thread mThread;
+	private Thread mThread2;
 	static void SSHDisConnectHost() {
 		sshConnection.close();
 		sshConnection = null;
@@ -225,49 +233,86 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
 				// TODO Auto-generated method stub
 				if (isChecked) {
 					//Connect to SSH server
-					new Thread(new Runnable() {
-						
-						@Override
-						public void run() {
-							handler.post(new Runnable() {
-								@Override
-								public void run() {
-									// TODO Auto-generated method stub
-									SSHConnectHost();
-									btExecuteCmd.setEnabled(true);
-									Toast msg = Toast.makeText(mContext, "SSH Server connected.",  Toast.LENGTH_LONG);
-									tbOnOffControll.setTextColor(Color.GREEN);
-									msg.show();
-								}
-							});
-						}
-						}).start();
+					tbOnOffControll.setText("Connecting...");
+					tbOnOffControll.setTextColor(Color.MAGENTA);
+					
+					if(mThread == null) {
+						mThread = new Thread(runnable_connect);
+						mThread.start();
+					}
+					else {
+						Toast.makeText(getApplication(), "Thread started", Toast.LENGTH_LONG).show();
+					}
+					
 				}
 				else {
-					//Disconnect 
-					new Thread(new Runnable() {
-						@Override
-						public void run() {
-							// TODO Auto-generated method stub
-							handler.post(new Runnable() {
-								
-								@Override
-								public void run() {
-									// TODO Auto-generated method stub
-									SSHDisConnectHost();
-									btExecuteCmd.setEnabled(false);
-									Toast msg = Toast.makeText(mContext, "SSH Server disconnected.",  Toast.LENGTH_LONG);
-									tbOnOffControll.setTextColor(Color.RED);
-									msg.show();
-								}
-							});
-						}
-					}).start();					
+					tbOnOffControll.setText("Disconnecting...");
+					tbOnOffControll.setTextColor(Color.MAGENTA);
+					
+					if(mThread2 == null) {
+						mThread2 = new Thread(runnable_disconnect);
+						mThread2.start();
+					}
+					else {
+						Toast.makeText(getApplication(), "Thread started", Toast.LENGTH_LONG).show();
+					}					
 				}
 			}
-		});
+			});
 
     }
+	
+	private Handler mHandler = new Handler(){
+		public void handleMessage(android.os.Message msg) {
+			switch (msg.what) {
+			case CONN_SUCCESS:
+				Toast.makeText(getApplicationContext(), "Connection established", Toast.LENGTH_LONG).show();
+				//Update button text color
+				btExecuteCmd.setEnabled(true);
+				tbOnOffControll.setTextColor(Color.GREEN);
+				tbOnOffControll.setText("Connected");
+				break;
+			case CONN_FAILURE:
+				btExecuteCmd.setEnabled(false);
+				tbOnOffControll.setTextColor(Color.RED);
+				tbOnOffControll.setText("Disonnected");
+				Toast.makeText(getApplicationContext(), "Connection established", Toast.LENGTH_LONG).show();
+				break;
+			default:
+				Toast.makeText(getApplicationContext(), "Disconnection done", Toast.LENGTH_LONG).show();
+			}
+		};
+	};
+	Runnable runnable_connect = new Runnable() {
+		
+		@Override
+		public void run() {
+			// TODO Auto-generated method stub
+			try {
+				SSHConnectHost();
+			} catch (Exception e){
+				mHandler.obtainMessage(CONN_FAILURE).sendToTarget();
+				//e.printStackTrace(System.err);
+			}
+			mHandler.obtainMessage(CONN_SUCCESS).sendToTarget();
+		}
+	};
+	
+	Runnable runnable_disconnect = new Runnable() {
+		
+		@Override
+		public void run() {
+			// TODO Auto-generated method stub
+			try {
+				SSHDisConnectHost();
+			} catch (Exception e){
+				mHandler.obtainMessage(CONN_FAILURE).sendToTarget();
+				//e.printStackTrace(System.err);
+			}
+			mHandler.obtainMessage(CONN_SUCCESS).sendToTarget();
+		}
+	};
+	
 	//Disconnect the SSH session gracefully to avoid junk on SSH server.
 	@Override
 	protected void onDestroy() {
