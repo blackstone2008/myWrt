@@ -13,7 +13,7 @@
         android:hint="click to connect or disconnect network"
         android:textColor="#ff0000"
         android:text="@string/tgOnOff"
-        android:textOff="DisConnected"
+        android:textOff="Disconnected"
         android:textOn="Connected" />
 
     <RelativeLayout

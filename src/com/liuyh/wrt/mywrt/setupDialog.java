@@ -4,6 +4,7 @@ import android.R.string;
 import android.app.Activity;
 import android.app.Dialog;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.view.View;
 import android.view.View.OnClickListener;
@@ -27,13 +28,23 @@ public class setupDialog extends Activity{
 		// TODO Auto-generated method stub
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.setup_dialog);  
-		
+        
+		SharedPreferences myData = getSharedPreferences(MainActivity.PERFERENCE_NAME, Activity.MODE_PRIVATE);
+		gatewayIP = myData.getString("hostname", "192.168.1.1");
+        username = myData.getString("username", "root");
+        password = myData.getString("password", "root");
+        port = myData.getString("port", "22");
+        
 		btOk = (Button) findViewById(R.id.okButton);
 		btCancel = (Button) findViewById(R.id.cancelButton);
 		etGatewayIP = (EditText)findViewById(R.id.gatewayIP);
+		etGatewayIP.setText(gatewayIP);
 		etUser = (EditText)findViewById(R.id.username);
+		etUser.setText(username);
 		etPassword = (EditText)findViewById(R.id.password);
-		etPort = (EditText)findViewById(R.id.portnum);	
+		etPassword.setText(password);
+		etPort = (EditText)findViewById(R.id.portnum);
+		etPort.setText(port);
 		
 		btOk.setOnClickListener(new OnClickListener() {
 			

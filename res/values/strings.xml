@@ -12,5 +12,6 @@
     <string name="CommandHint">Command to be executed on your gateway</string>
     <string name="ExecuteResult">ExecuteResult</string>
     <string name="tgOnOff">OnOff</string>
+    <string name="exit_mywrt">Exit</string>
 
 </resources>

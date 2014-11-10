@@ -7,15 +7,19 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 
+import android.app.Activity;
+import android.app.Fragment.SavedState;
 //import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.location.SettingInjectorService;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.StrictMode;
 import android.support.v7.app.ActionBarActivity;
+import android.test.PerformanceTestCase;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -45,11 +49,13 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
 	public final static int DISCONN_FAILURE = 4;
 	public final static int READ_BUF_SIZE = 10240;
 	public final static int REQ_ID_SETUP = 1;
+	public final static String PERFERENCE_NAME = "user_info";
 	//Global handle for SSH connection
 	private static Connection sshConnection = null;
-	private static String hostname = "192.168.1.1";
-	private static String username = "root";
-	private static String password = "root";
+	private static String hostname;
+	private static String username;
+	private static String password;
+	private static String port;
 	
 	Context mContext;
 	//Thread that do the real networking operation
@@ -207,13 +213,19 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
 	private Button btExecuteCmd;
 	private EditText etCmd;
 	private TextView tvExecuteResult;
-	private static Handler handler=new Handler();
 	@Override
     protected void onCreate(Bundle savedInstanceState) {
     	StrictMode.ThreadPolicy policy=new StrictMode.ThreadPolicy.Builder().permitAll().build();
     	StrictMode.setThreadPolicy(policy);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);    
+        
+        SharedPreferences myData = getSharedPreferences(PERFERENCE_NAME, Activity.MODE_PRIVATE);
+        hostname = myData.getString("hostname", "192.168.1.1");
+        username = myData.getString("username", "root");
+        password = myData.getString("password", "root");
+        port = myData.getString("port", "22");
+        
         //ToggleButton which connect/disconnect gateway
         tbOnOffControll = (ToggleButton)findViewById(R.id.toggleButtonOnOff);
         //Button which execute the command
@@ -236,26 +248,13 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
 					tbOnOffControll.setText("Connecting...");
 					tbOnOffControll.setTextColor(Color.MAGENTA);
 					
-					if(mThread == null) {
-						mThread = new Thread(runnable_connect);
-						mThread.start();
-					}
-					else {
-						Toast.makeText(getApplication(), "Thread started", Toast.LENGTH_LONG).show();
-					}
-					
+					new Thread(runnable_connect).start();
+										
 				}
 				else {
 					tbOnOffControll.setText("Disconnecting...");
 					tbOnOffControll.setTextColor(Color.MAGENTA);
-					
-					if(mThread2 == null) {
-						mThread2 = new Thread(runnable_disconnect);
-						mThread2.start();
-					}
-					else {
-						Toast.makeText(getApplication(), "Thread started", Toast.LENGTH_LONG).show();
-					}					
+					new Thread(runnable_disconnect).start();
 				}
 			}
 			});
@@ -266,17 +265,17 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
 		public void handleMessage(android.os.Message msg) {
 			switch (msg.what) {
 			case CONN_SUCCESS:
-				Toast.makeText(getApplicationContext(), "Connection established", Toast.LENGTH_LONG).show();
 				//Update button text color
 				btExecuteCmd.setEnabled(true);
-				tbOnOffControll.setTextColor(Color.GREEN);
 				tbOnOffControll.setText("Connected");
-				break;
-			case CONN_FAILURE:
-				btExecuteCmd.setEnabled(false);
-				tbOnOffControll.setTextColor(Color.RED);
-				tbOnOffControll.setText("Disonnected");
+				tbOnOffControll.setTextColor(Color.GREEN);
 				Toast.makeText(getApplicationContext(), "Connection established", Toast.LENGTH_LONG).show();
+				break;
+			case DISCONN_SUCCESS:
+				btExecuteCmd.setEnabled(false);
+				tbOnOffControll.setText("Disonnected");
+				tbOnOffControll.setTextColor(Color.RED);
+				Toast.makeText(getApplicationContext(), "Disconnected", Toast.LENGTH_LONG).show();
 				break;
 			default:
 				Toast.makeText(getApplicationContext(), "Disconnection done", Toast.LENGTH_LONG).show();
@@ -306,22 +305,37 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
 			try {
 				SSHDisConnectHost();
 			} catch (Exception e){
-				mHandler.obtainMessage(CONN_FAILURE).sendToTarget();
+				mHandler.obtainMessage(DISCONN_FAILURE).sendToTarget();
 				//e.printStackTrace(System.err);
 			}
-			mHandler.obtainMessage(CONN_SUCCESS).sendToTarget();
+			mHandler.obtainMessage(DISCONN_SUCCESS).sendToTarget();
 		}
 	};
+	private void save_data() {
+		SharedPreferences myData = getSharedPreferences(PERFERENCE_NAME, Activity.MODE_PRIVATE);
+		SharedPreferences.Editor editor = myData.edit();
+		editor.putString("hostname", hostname);
+		editor.putString("username", username);
+		editor.putString("password", password);
+		editor.putString("port", port);
+		editor.commit();
+	}
+	protected void onStop() {
+		save_data();
+		super.onStop();
+	};
+	
 	
 	//Disconnect the SSH session gracefully to avoid junk on SSH server.
 	@Override
 	protected void onDestroy() {
 		// TODO Auto-generated method stub
-		super.onDestroy();
+		
 		if (sshConnection != null) {
 			sshConnection.close();
 			sshConnection = null;
 		}
+		super.onDestroy();
 	}
 
     @Override
@@ -343,6 +357,11 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
 			startActivityForResult(intent, requestCode);
         	
             return true;
+        }
+        //Exit trigger by option menu
+        if (id == R.id.action_exit)  {
+        	save_data();
+        	finish();
         }
         return super.onOptionsItemSelected(item);
     }
@@ -381,12 +400,13 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
 			String gatewayIP = data.getStringExtra("gatewayIP");
 			String user = data.getStringExtra("username");
 			String passwd = data.getStringExtra("password");
-			String port = data.getStringExtra("port");
+			String portnum = data.getStringExtra("port");
 			
 			tvExecuteResult.setText("gatewayIP: " + gatewayIP + "\n" + "username: " + username + "\n" + "password: " + password + "\n" + "port: " + port);
 			hostname = gatewayIP;
 			username = user;
 			password = passwd;
+			port = portnum;
 		}
 		
 	}
